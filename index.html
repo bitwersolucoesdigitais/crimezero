@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrimeZero | Análise Econômica e Matemática Penal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+        .glass-panel { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(12px); border: 1px solid #334155; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .tab-active { border-bottom: 2px solid #34d399; color: #34d399; }
+        .tab-inactive { color: #94a3b8; }
+        .tab-inactive:hover { color: #e2e8f0; }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); }
+        .math-font { font-family: 'Courier New', Courier, monospace; }
+        table.compare td, table.compare th { padding: 0.7rem 0.75rem; border-bottom: 1px solid #334155; vertical-align: top; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 overflow-x-hidden flex flex-col">
+
+    <div class="max-w-7xl mx-auto flex-grow w-full">
+        <header class="mb-6 border-b border-slate-700 pb-3">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-2">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight">⚖️ CrimeZero</h1>
+                    <p class="text-slate-300 mt-1 text-base md:text-lg">Criminologia Baseada em Evidências • Análise Econômica do Direito • Matemática Penal</p>
+                    <p class="text-emerald-400/90 text-sm mt-1">Base de dados: <span id="ano-base-display" class="font-bold"></span> | Fontes: FBSP, Senappen, UNODC, World Prison Brief, Becker (1968), Wolfgang et al. (1972)</p>
+                </div>
+            </div>
+            
+            <nav class="flex flex-wrap gap-4 md:gap-6 mt-5">
+                <button onclick="mudarAba('simulador')" id="nav-simulador" class="pb-2 font-bold text-base md:text-lg tab-active transition-colors">🎮 Sistema CrimeZero</button>
+                <button onclick="mudarAba('cenarios')" id="nav-cenarios" class="pb-2 font-bold text-base md:text-lg tab-inactive transition-colors">📊 Cenários & Gráficos</button>
+                <button onclick="mudarAba('fundamentacao')" id="nav-fundamentacao" class="pb-2 font-bold text-base md:text-lg tab-inactive transition-colors">🔍 Fundamentação Teórica</button>
+            </nav>
+        </header>
+
+        <!-- ================= ABA SIMULADOR ================= -->
+        <div id="aba-simulador" class="block">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="glass-panel p-5 md:p-6 rounded-xl lg:col-span-1 h-fit border-t-4 border-t-emerald-500">
+                    <h2 class="text-xl font-bold mb-4 text-white">Processo de Autuação</h2>
+                    <form id="form-registro" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-slate-300">Nome do Infrator</label>
+                            <input type="text" id="nome-infrator" required autocomplete="off"
+                                class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"
+                                placeholder="Ex: Indivíduo A">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1 text-slate-300">Tipificação Penal</label>
+                            <select id="crime-select" required class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"></select>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-lg shadow-emerald-900/40">
+                            Executar Prisão e Cálculo Matemático
+                        </button>
+                    </form>
+                    <p class="text-xs text-slate-400 mt-4 leading-relaxed">A pena acumulada = pena base × número de passagens (multiplicador linear de reincidência). Crimes perpétuos isolam permanentemente.</p>
+                </div>
+
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="flex justify-between items-end mb-1">
+                        <h2 class="text-xl font-bold text-white">Prisioneiros Custodiados (<span id="total-registros">0</span>)</h2>
+                        <button onclick="limparSistema()" class="text-sm text-red-400 hover:text-red-300 underline">Resetar Base</button>
+                    </div>
+                    <div id="lista-presos" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= ABA CENÁRIOS & GRÁFICOS ================= -->
+        <div id="aba-cenarios" class="hidden space-y-12">
+            
+            <!-- PARTE 1: CENÁRIO ATUAL -->
+            <section class="space-y-6">
+                <div class="border-b border-orange-900/50 pb-2">
+                    <h2 class="text-2xl md:text-3xl font-bold text-orange-400">1. O Cenário Atual (Legislação Brasileira Real)</h2>
+                    <p class="text-sm text-slate-400 mt-1">Reflete a realidade das audiências de custódia, progressão de regime, remição, livramento condicional e penas alternativas.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-slate-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Esclarecimento Homicídios</h3>
+                        <p class="text-3xl font-bold text-slate-200 mt-2">~36%</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Baixa certeza de punição (impunidade)</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-orange-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Tempo Médio em Regime Fechado</h3>
+                        <p class="text-3xl font-bold text-orange-400 mt-2">Baixíssimo</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Progressão + saidinhas + soltura na custódia</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-red-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Volume de Reincidência</h3>
+                        <p class="text-3xl font-bold text-red-400 mt-2">>70%</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Criminosos habituais livres na sociedade</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-xl border border-slate-700">
+                    <h3 class="text-lg font-bold text-white mb-4">Tempo Efetivo de Prisão — Sistema Atual</h3>
+                    <div class="overflow-x-auto">
+                        <table class="compare w-full text-sm text-left">
+                            <thead class="text-xs uppercase text-slate-400 bg-slate-800/80">
+                                <tr>
+                                    <th>Crime</th>
+                                    <th>1ª Passagem</th>
+                                    <th>2ª Passagem</th>
+                                    <th>3ª Passagem</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-slate-300 divide-y divide-slate-700/50">
+                                <tr>
+                                    <td class="font-bold text-slate-200">Furto / Receptação</td>
+                                    <td class="text-orange-400">Solto na Audiência de Custódia</td>
+                                    <td class="text-orange-400">Penas alternativas / Multa</td>
+                                    <td class="text-yellow-500">Meses no Semiaberto</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Estelionato / Fraude</td>
+                                    <td class="text-orange-400">Acordo / Sem prisão</td>
+                                    <td class="text-orange-400">Multa / Prestação de serviços</td>
+                                    <td class="text-yellow-500">Raras restrições</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio no Trânsito (Culposo)</td>
+                                    <td class="text-orange-400">Prestação de serviços / Cesta básica</td>
+                                    <td class="text-orange-400">Suspensão de CNH + multa</td>
+                                    <td class="text-yellow-500">Regime Aberto / Semiaberto</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio no Trânsito (Dolo Eventual)</td>
+                                    <td class="text-yellow-500">Anos em liberdade até o Júri</td>
+                                    <td class="text-orange-300">Desclassificação ou Semiaberto</td>
+                                    <td class="text-red-400">~2 a 4 anos fechado real</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Tráfico de Entorpecentes (varejo)</td>
+                                    <td class="text-orange-400">Tornozeleira / "Privilegiado"</td>
+                                    <td class="text-yellow-500">Regime Aberto / Semiaberto</td>
+                                    <td class="text-yellow-500">Poucos anos com progressão</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Roubo a Mão Armada</td>
+                                    <td class="text-yellow-500">Meses até Semiaberto</td>
+                                    <td class="text-yellow-500">~1 a 2 anos fechado</td>
+                                    <td class="text-orange-300">~2 a 4 anos reais</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio Simples / Passional</td>
+                                    <td class="text-orange-300">~3 a 6 anos fechado</td>
+                                    <td class="text-red-400">~6 a 9 anos fechado</td>
+                                    <td class="text-red-400">Raramente cumpre integral</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio Qualificado (Hediondo)</td>
+                                    <td class="text-orange-300">~6 a 8 anos até progressão</td>
+                                    <td class="text-red-400">~10 a 12 anos até progressão</td>
+                                    <td class="text-red-500">Saídas temporárias e indultos</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Tentativa de Homicídio Qualificado</td>
+                                    <td class="text-yellow-500">Pena reduzida (2/3) / Solto rápido</td>
+                                    <td class="text-orange-300">Poucos anos + saídas</td>
+                                    <td class="text-red-400">Liberdade condicional / Prescrição</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Estupro / Violência Sexual</td>
+                                    <td class="text-yellow-500">Progressão após 40–50%</td>
+                                    <td class="text-orange-300">Anos com benefícios</td>
+                                    <td class="text-red-400">Soltura por prazos processuais</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Latrocínio</td>
+                                    <td class="text-red-400">Longo, mas com progressão</td>
+                                    <td class="text-red-500">Cumpre parte + indultos/saídas</td>
+                                    <td class="text-red-500">Histórico de saídas temporárias</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Liderança de Facção / Milícia</td>
+                                    <td class="text-yellow-500">Preventiva muitas vezes revogada</td>
+                                    <td class="text-orange-300">Comanda do presídio</td>
+                                    <td class="text-red-400">Transferências e benefícios legais</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Corrupção / Desvio de Verba</td>
+                                    <td class="text-orange-400">Prisão domiciliar / Leniência</td>
+                                    <td class="text-orange-400">Recursos e prescrição</td>
+                                    <td class="text-yellow-500">Raramente cumpre fechado contínuo</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Estagnação do Crime vs Esclarecimento (Atual)</h3>
+                        <canvas id="chartCrimeAtual" height="220"></canvas>
+                        <p class="text-[11px] text-slate-500 mt-2 text-center">Alta reincidência mantém o volume de crimes elevado e afoga as investigações.</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Prejuízo Social (Cenário de Impunidade)</h3>
+                        <canvas id="chartCustoAtual" height="220"></canvas>
+                        <p class="text-[11px] text-slate-500 mt-2 text-center">O custo invisível (vidas, saúde, fuga de investimentos) é permanente e crescente.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DIVISOR -->
+            <div class="flex items-center justify-center py-2">
+                <div class="w-full h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+                <div class="px-4 text-slate-500 text-2xl">⚔️</div>
+                <div class="w-full h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+            </div>
+
+            <!-- PARTE 2: MODELO CRIMEZERO -->
+            <section class="space-y-6">
+                <div class="border-b border-emerald-900/50 pb-2">
+                    <h2 class="text-2xl md:text-3xl font-bold text-emerald-400">2. O Modelo CrimeZero (Projeção Matemática)</h2>
+                    <p class="text-sm text-slate-400 mt-1">Cumprimento integral da pena + multiplicador linear de reincidência + isolamento perpétuo para crimes de alto risco.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-emerald-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Esclarecimento Projetado (Ano 10)</h3>
+                        <p class="text-3xl font-bold text-emerald-400 mt-2">88%</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Efeito Bola de Neve da dissuasão</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-indigo-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Regime Efetivo</h3>
+                        <p class="text-3xl font-bold text-indigo-400 mt-2">100%</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Fim da progressão e das saidinhas</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-l-4 border-blue-500">
+                        <h3 class="text-slate-400 text-xs font-bold uppercase">Crimes Evitados</h3>
+                        <p class="text-3xl font-bold text-blue-400 mt-2">Milhões</p>
+                        <p class="text-[10px] text-slate-500 mt-1">Incapacitação dos 6% crônicos (Pareto)</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-xl border border-slate-700">
+                    <h3 class="text-lg font-bold text-white mb-4">Simulação CrimeZero — Multiplicador Linear Ativado</h3>
+                    <div class="overflow-x-auto">
+                        <table class="compare w-full text-sm text-left">
+                            <thead class="text-xs uppercase text-slate-400 bg-slate-800/80">
+                                <tr>
+                                    <th>Crime</th>
+                                    <th>Pena Base</th>
+                                    <th>1ª Passagem <span class="text-emerald-400">(×1)</span></th>
+                                    <th>2ª Passagem <span class="text-emerald-400">(×2)</span></th>
+                                    <th>3ª Passagem <span class="text-emerald-400">(×3)</span></th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-slate-300 divide-y divide-slate-700/50">
+                                <tr>
+                                    <td class="font-bold text-slate-200">Furto / Receptação</td>
+                                    <td>3 anos</td>
+                                    <td class="text-emerald-400">3 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">6 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">9 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Estelionato / Fraude</td>
+                                    <td>4 anos</td>
+                                    <td class="text-emerald-400">4 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">8 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">12 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio no Trânsito (Culposo)</td>
+                                    <td>4 anos</td>
+                                    <td class="text-emerald-400">4 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">8 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">12 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio no Trânsito (Dolo Eventual)</td>
+                                    <td>8 anos</td>
+                                    <td class="text-emerald-400">8 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">16 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">24 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Tráfico de Entorpecentes</td>
+                                    <td>8 anos</td>
+                                    <td class="text-emerald-400">8 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">16 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">24 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Roubo a Mão Armada</td>
+                                    <td>8 anos</td>
+                                    <td class="text-emerald-400">8 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">16 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">24 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio Simples / Passional</td>
+                                    <td>12 anos</td>
+                                    <td class="text-emerald-400">12 anos Fechado</td>
+                                    <td class="text-emerald-400 font-bold">24 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">36 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Homicídio Qualificado</td>
+                                    <td>20 anos</td>
+                                    <td class="text-emerald-400">20 anos Fechado Integral</td>
+                                    <td class="text-emerald-400 font-bold">40 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">60 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Corrupção / Desvio de Verba</td>
+                                    <td>6 anos</td>
+                                    <td class="text-emerald-400">6 anos + Confisco</td>
+                                    <td class="text-emerald-400 font-bold">12 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">18 anos Fechado</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-bold text-slate-200">Liderança de Facção / Milícia</td>
+                                    <td>10 anos</td>
+                                    <td class="text-emerald-400">10 anos Isolamento Total</td>
+                                    <td class="text-emerald-400 font-bold">20 anos Fechado</td>
+                                    <td class="text-emerald-500 font-bold">30 anos Fechado</td>
+                                </tr>
+                                <tr class="bg-red-950/30">
+                                    <td class="font-bold text-slate-200">Tentativa de Homicídio Qualificado</td>
+                                    <td class="text-red-400 font-bold">Perpétua</td>
+                                    <td class="text-red-500 font-bold uppercase" colspan="3">Isolamento Perpétuo Imediato</td>
+                                </tr>
+                                <tr class="bg-red-950/30">
+                                    <td class="font-bold text-slate-200">Homicídio Premeditado / Execução Fria</td>
+                                    <td class="text-red-400 font-bold">Perpétua</td>
+                                    <td class="text-red-500 font-bold uppercase" colspan="3">Isolamento Perpétuo Imediato</td>
+                                </tr>
+                                <tr class="bg-red-950/30">
+                                    <td class="font-bold text-slate-200">Estupro / Violência Sexual</td>
+                                    <td class="text-red-400 font-bold">Perpétua</td>
+                                    <td class="text-red-500 font-bold uppercase" colspan="3">Isolamento Perpétuo Imediato</td>
+                                </tr>
+                                <tr class="bg-red-950/30">
+                                    <td class="font-bold text-slate-200">Latrocínio</td>
+                                    <td class="text-red-400 font-bold">Perpétua</td>
+                                    <td class="text-red-500 font-bold uppercase" colspan="3">Isolamento Perpétuo Imediato</td>
+                                </tr>
+                                <tr class="bg-red-950/30">
+                                    <td class="font-bold text-slate-200">Feminicídio</td>
+                                    <td class="text-red-400 font-bold">Perpétua</td>
+                                    <td class="text-red-500 font-bold uppercase" colspan="3">Isolamento Perpétuo Imediato</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Queda do Crime vs Esclarecimento (CrimeZero)</h3>
+                        <canvas id="chartCrimeCZ" height="220"></canvas>
+                        <p class="text-[11px] text-slate-500 mt-2 text-center">Incapacitar reincidentes reduz o volume e libera a polícia para esclarecer quase tudo.</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Custo Social × Custo Prisional (Modelo)</h3>
+                        <canvas id="chartCustoCZ" height="220"></canvas>
+                        <p class="text-[11px] text-slate-500 mt-2 text-center">Investimento inicial maior no sistema prisional gera economia massiva no prejuízo social.</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Efeito Bola de Neve (Impunidade × Resolução)</h3>
+                        <canvas id="graficoBolaNeve" height="200"></canvas>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-slate-400 uppercase mb-3">Lei de Pareto — Incapacitação Seletiva</h3>
+                        <canvas id="graficoPareto" height="200"></canvas>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ================= ABA FUNDAMENTAÇÃO TEÓRICA ================= -->
+        <div id="aba-fundamentacao" class="hidden space-y-8">
+
+            <!-- Filosofia -->
+            <div class="glass-panel p-5 md:p-6 rounded-xl border border-slate-700">
+                <h3 class="text-xl md:text-2xl font-bold text-white mb-4">A Filosofia do Risco à Sociedade</h3>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-lg font-bold text-orange-400 mb-2">Crime de Ímpeto (Passional)</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            Em momento de fúria, desespero ou calor de uma discussão, o ser humano é suscetível a cometer atos terríveis. Quem comete um crime passional pode sentir arrependimento real. Para esses casos existe punição, reabilitação e retorno à sociedade. A ressocialização aqui é estatisticamente mais viável.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-red-500 mb-2">Crime Premeditado e Psicopatia</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed">
+                            Alguém que planeja com frieza a morte de um semelhante, ou comete violência sexual, possui estrutura mental de risco permanente. Uma mente capaz de arquitetar a dor alheia com cálculo não tem “conserto” garantido pelo tempo. O Estado não tem o direito de apostar a vida de cidadãos inocentes na ressocialização de um psicopata. O isolamento aqui não é apenas punição — é legítima defesa coletiva.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Matemática -->
+            <div class="glass-panel p-5 md:p-6 rounded-xl border border-slate-700">
+                <h3 class="text-xl md:text-2xl font-bold text-white mb-5">Fundamentação Matemática da Dissuasão</h3>
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div>
+                        <h4 class="text-md font-bold text-emerald-400 mb-2">1. Economia do Crime (Becker, 1968)</h4>
+                        <div class="bg-slate-900 p-3 rounded math-font text-xs text-slate-300 mb-3 border border-slate-700">
+                            E[U] = p × U(Y − f) + (1 − p) × U(Y)
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            A Teoria da Escolha Racional do Nobel Gary Becker demonstra que o infrator calcula o risco. O multiplicador de pena (f) garante que a Utilidade Esperada (E[U]) do crime se torne permanentemente negativa para reincidentes. Aumentar a certeza de punição (p) é ainda mais poderoso que aumentar a severidade.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-bold text-indigo-400 mb-2">2. Efeito Bola de Neve (Esclarecimento)</h4>
+                        <div class="bg-slate-900 p-3 rounded math-font text-xs text-slate-300 mb-3 border border-slate-700">
+                            Δp ≈ Força Policial Constante / Δ Crimes Totais
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Ao isolar os 6% mais violentos e reincidentes, a taxa de crimes cai vertiginosamente. Com menos crimes ocorrendo, a mesma força policial e judiciária consegue investigar melhor. A probabilidade de ser pego (p) dispara, aniquilando a sensação de impunidade e gerando um ciclo virtuoso de dissuasão.
+                        </p>
+                    </div>
+                    <div>
+                        <h4 class="text-md font-bold text-red-400 mb-2">3. Lei de Pareto (Coorte de Wolfgang)</h4>
+                        <div class="bg-slate-900 p-3 rounded math-font text-xs text-slate-300 mb-3 border border-slate-700">
+                            ~6% dos Infratores = 50%+ dos Crimes
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Baseado no histórico estudo da Universidade da Pensilvânia (Wolfgang, Figlio & Sellin, 1972) com 9.945 meninos nascidos em Filadélfia em 1945. O padrão se repete em dezenas de estudos longitudinais no mundo. A matemática de isolamento contínuo foca precisamente nestes infratores crônicos. O efeito de incapacitação tem impacto em progressão geométrica.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparativo Internacional -->
+            <div class="glass-panel p-5 md:p-6 rounded-xl border border-slate-700">
+                <h3 class="text-xl md:text-2xl font-bold text-white mb-2">Comparação Internacional (dados 2023–2025/2026)</h3>
+                <p class="text-sm text-slate-400 mb-5">Homicídio intencional por 100 mil habitantes é o indicador mais comparável entre países. Fontes: UNODC, World Prison Brief, FBSP, InSight Crime.</p>
+                
+                <div class="overflow-x-auto">
+                    <table class="compare w-full text-sm text-left">
+                        <thead class="text-xs uppercase text-slate-400 border-b border-slate-600">
+                            <tr>
+                                <th>País</th>
+                                <th>Homicídios /100k</th>
+                                <th>Encarceramento /100k</th>
+                                <th>Esclarecimento Homicídios</th>
+                                <th>Perfil das Leis</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-slate-200">
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/sg.png" width="20" height="15" alt="Singapura" class="rounded-sm"> Singapura</td>
+                                <td class="text-emerald-400 font-bold">0,07</td>
+                                <td>~160</td>
+                                <td>>90%</td>
+                                <td>Extremamente rígidas (pena de morte, caning)</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/jp.png" width="20" height="15" alt="Japão" class="rounded-sm"> Japão</td>
+                                <td class="text-emerald-400 font-bold">0,2–0,3</td>
+                                <td>~35</td>
+                                <td>>90%</td>
+                                <td>Rígidas + altíssima coesão social</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/no.png" width="20" height="15" alt="Noruega" class="rounded-sm"> Noruega</td>
+                                <td class="text-emerald-400">0,7</td>
+                                <td>~55</td>
+                                <td>Alta</td>
+                                <td>Progressista (foco em reabilitação)</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/pt.png" width="20" height="15" alt="Portugal" class="rounded-sm"> Portugal</td>
+                                <td class="text-emerald-400">~0,8</td>
+                                <td>~115</td>
+                                <td>Alta</td>
+                                <td>Moderadas (padrão europeu)</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/de.png" width="20" height="15" alt="Alemanha" class="rounded-sm"> Alemanha</td>
+                                <td class="text-emerald-400">~0,9</td>
+                                <td>~70</td>
+                                <td>Alta</td>
+                                <td>Moderadas-rígidas + alta eficiência</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/us.png" width="20" height="15" alt="EUA" class="rounded-sm"> EUA</td>
+                                <td>~5–6</td>
+                                <td>~540</td>
+                                <td>~60–66%</td>
+                                <td>Variável por estado (alguns muito rígidos)</td>
+                            </tr>
+                            <tr class="bg-slate-800/50">
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/br.png" width="20" height="15" alt="Brasil" class="rounded-sm"> <strong>Brasil</strong></td>
+                                <td class="text-orange-400 font-bold">19,1 (2025)</td>
+                                <td>~410–450</td>
+                                <td>~36%</td>
+                                <td>Moderadas na letra / frágeis na prática</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/mx.png" width="20" height="15" alt="México" class="rounded-sm"> México</td>
+                                <td class="text-red-400">~25</td>
+                                <td>~175</td>
+                                <td>~50–55%</td>
+                                <td>Frágeis + forte presença de cartéis</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/co.png" width="20" height="15" alt="Colômbia" class="rounded-sm"> Colômbia</td>
+                                <td class="text-red-400">~25</td>
+                                <td>~240</td>
+                                <td>Baixa-média</td>
+                                <td>Histórico de fragilidade e narcotráfico</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/sv.png" width="20" height="15" alt="El Salvador" class="rounded-sm"> El Salvador</td>
+                                <td class="text-emerald-400">caiu para ~2–7</td>
+                                <td class="text-red-400 font-bold">~1.650</td>
+                                <td>Subiu fortemente</td>
+                                <td>Extremamente rígidas (regime de exceção)</td>
+                            </tr>
+                            <tr>
+                                <td class="flex items-center gap-2 py-2.5"><img src="https://flagcdn.com/w20/jm.png" width="20" height="15" alt="Jamaica" class="rounded-sm"> Jamaica</td>
+                                <td class="text-red-400">~40–50</td>
+                                <td>~125</td>
+                                <td>Variável</td>
+                                <td>Frágeis historicamente</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 grid md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-slate-900/60 p-4 rounded-lg border border-slate-700">
+                        <h4 class="font-bold text-emerald-400 mb-2">O que a matemática mostra</h4>
+                        <ul class="list-disc list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                            <li>Países com alta certeza de punição (p elevado) + isolamento seletivo têm as menores taxas de homicídio do mundo.</li>
+                            <li>El Salvador é o experimento contemporâneo mais próximo da lógica de incapacitação seletiva em larga escala.</li>
+                            <li>Brasil tem taxa de esclarecimento de homicídios (~36%) muito abaixo do padrão dos países seguros (>90%).</li>
+                        </ul>
+                    </div>
+                    <div class="bg-slate-900/60 p-4 rounded-lg border border-slate-700">
+                        <h4 class="font-bold text-orange-400 mb-2">Limitações honestas</h4>
+                        <ul class="list-disc list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                            <li>Cultura, demografia e presença de facções armadas diferem radicalmente entre países.</li>
+                            <li>Projeções do modelo são ilustrativas e matemáticas, não previsões calibradas para o Brasil real.</li>
+                            <li>Custo social do crime e custo prisional variam enormemente conforme o tipo de delito.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RODAPÉ -->
+    <footer class="mt-12 py-6 border-t border-slate-800 text-center text-slate-400 text-xs">
+        <p>⚠️ <strong>Isenção de Responsabilidade:</strong> Esta aplicação é um simulador educativo e um exercício filosófico sobre matemática penal e criminalidade.</p>
+        <p class="mt-1">Os dados pré-carregados são projeções e aproximações baseadas no cenário brasileiro para fins de discussão acadêmica e conscientização.</p>
+        <p class="mt-2 text-slate-500">CrimeZero Project © <span id="footer-ano"></span> — Matemática em primeiro lugar.</p>
+    </footer>
+
+    <!-- Modais -->
+    <dialog id="modal-alerta" class="bg-slate-900 border border-slate-600 rounded-xl p-0 w-full max-w-lg shadow-[0_0_50px_rgba(220,38,38,0.2)]">
+        <div class="p-8 border-l-8 border-red-600 rounded-l-xl">
+            <div class="flex items-center gap-4 mb-4">
+                <span class="text-4xl" id="alerta-icone">🛑</span>
+                <h3 class="text-2xl font-bold text-red-500 tracking-wide" id="alerta-titulo">ACESSO NEGADO</h3>
+            </div>
+            <p class="text-slate-300 text-lg leading-relaxed mb-8" id="alerta-texto"></p>
+            <div class="flex justify-end">
+                <button type="button" onclick="document.getElementById('modal-alerta').close()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded-lg transition-colors border border-slate-500 uppercase tracking-widest text-sm">Entendido</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="modal-reincidencia" class="bg-slate-900 border border-slate-700 rounded-xl p-0 w-full max-w-md shadow-2xl">
+        <div class="p-6">
+            <h3 class="text-xl font-bold text-white mb-2">Recapturar: <span id="modal-nome" class="text-orange-400"></span></h3>
+            <p class="text-slate-400 text-sm mb-4">Esta será a <span id="modal-passagens" class="font-bold text-white"></span>ª passagem. A pena base será multiplicada matematicamente.</p>
+            <form id="form-reincidencia" class="space-y-4">
+                <input type="hidden" id="modal-id">
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-slate-300">Novo Delito</label>
+                    <select id="modal-crime-select" required class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:border-orange-500"></select>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="fecharModalReincidencia()" class="px-4 py-2 text-slate-300 hover:text-white">Cancelar</button>
+                    <button type="submit" class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded-lg">Executar Prisão</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <script>
+        const CONFIG = {
+            anoBase: 2026,
+            populacaoCarcerariaAtual: 950000,
+            custoMensalPreso: 2500,
+            taxaEsclarecimentoBaseBR: 36,
+            crimesCometidosPorInfratorSolto: 12,
+            anosProjecao: [0, 2, 4, 6, 8, 10],
+            crimesEvolucaoZero: [100, 70, 48, 30, 18, 12],
+            esclarecimentoEvolucao: [36, 42, 52, 65, 78, 88]
+        };
+
+        const CATALOGO_CRIMES = [
+            { id: 'furto', nome: 'Furto / Receptação', penaBase: 3, perpetua: false, categoria: 'Patrimônio' },
+            { id: 'estelionato', nome: 'Estelionato / Fraude', penaBase: 4, perpetua: false, categoria: 'Patrimônio' },
+            { id: 'roubo', nome: 'Roubo a Mão Armada', penaBase: 8, perpetua: false, categoria: 'Patrimônio' },
+            { id: 'latrocinio', nome: 'Latrocínio (Roubo seguido de morte)', penaBase: 0, perpetua: true, categoria: 'Patrimônio' },
+            { id: 'transito_culposo', nome: 'Homicídio no Trânsito (Culposo)', penaBase: 4, perpetua: false, categoria: 'Trânsito' },
+            { id: 'transito_doloso', nome: 'Homicídio no Trânsito (Dolo Eventual / Embriaguez)', penaBase: 8, perpetua: false, categoria: 'Trânsito' },
+            { id: 'homicidio_passional', nome: 'Homicídio Simples / Passional', penaBase: 12, perpetua: false, categoria: 'Vida' },
+            { id: 'homicidio_qualificado', nome: 'Homicídio Qualificado (Motivo Fútil / Torpe)', penaBase: 20, perpetua: false, categoria: 'Vida' },
+            { id: 'tentativa_homicidio', nome: 'Tentativa de Homicídio Qualificado', penaBase: 0, perpetua: true, categoria: 'Vida' },
+            { id: 'homicidio_premeditado', nome: 'Homicídio Premeditado / Execução Fria', penaBase: 0, perpetua: true, categoria: 'Vida' },
+            { id: 'feminicidio', nome: 'Feminicídio', penaBase: 0, perpetua: true, categoria: 'Vida' },
+            { id: 'estupro', nome: 'Estupro / Violência Sexual', penaBase: 0, perpetua: true, categoria: 'Dignidade Sexual' },
+            { id: 'trafico', nome: 'Tráfico de Entorpecentes (Varejo)', penaBase: 8, perpetua: false, categoria: 'Organizado' },
+            { id: 'lider_faccao', nome: 'Liderança de Facção / Milícia', penaBase: 10, perpetua: false, categoria: 'Organizado' },
+            { id: 'corrupcao', nome: 'Corrupção / Desvio de Verba Pública', penaBase: 6, perpetua: false, categoria: 'Colarinho Branco' }
+        ];
+
+        let db = JSON.parse(localStorage.getItem('CrimeZeroDB_v3')) || [];
+        let graficosAtivos = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('ano-base-display').innerText = CONFIG.anoBase;
+            document.getElementById('footer-ano').innerText = CONFIG.anoBase;
+            popularSelects();
+            renderizarLista();
+            document.getElementById('form-registro').addEventListener('submit', handleRegistro);
+            document.getElementById('form-reincidencia').addEventListener('submit', handleReincidencia);
+        });
+
+        function mudarAba(aba) {
+            document.getElementById('aba-simulador').classList.toggle('hidden', aba !== 'simulador');
+            document.getElementById('aba-cenarios').classList.toggle('hidden', aba !== 'cenarios');
+            document.getElementById('aba-fundamentacao').classList.toggle('hidden', aba !== 'fundamentacao');
+            
+            const navs = {
+                simulador: document.getElementById('nav-simulador'),
+                cenarios: document.getElementById('nav-cenarios'),
+                fundamentacao: document.getElementById('nav-fundamentacao')
+            };
+            Object.keys(navs).forEach(k => {
+                navs[k].className = `pb-2 font-bold text-base md:text-lg transition-colors ${k === aba ? 'tab-active' : 'tab-inactive'}`;
+            });
+            
+            if (aba === 'cenarios' && !graficosAtivos) {
+                inicializarGraficos();
+                graficosAtivos = true;
+            }
+        }
+
+        function dispararAlerta(tipo) {
+            const mensagens = {
+                'bom_comportamento': {
+                    icone: '🛑', titulo: 'ACESSO NEGADO',
+                    texto: 'O sistema não prevê redução de pena por bom comportamento. A matemática é exata: o tempo integral deve ser cumprido pela segurança social e respeito às vítimas.'
+                },
+                'visita': {
+                    icone: '🚫', titulo: 'ISOLAMENTO ATIVADO',
+                    texto: 'Contato físico suspenso. Regalias como “saidinha” temporária ou visita íntima não são compatíveis com este módulo de alto risco.'
+                },
+                'advogado': {
+                    icone: '⚖️', titulo: 'COMUNICAÇÃO MONITORADA',
+                    texto: 'Acesso do advogado liberado apenas via terminal do sistema em tempo real. Todas as conversas são registradas no processo. Qualquer tentativa de gerenciar atividades ilegais externas cancela o direito à comunicação instantaneamente.'
+                }
+            };
+            const m = mensagens[tipo];
+            document.getElementById('alerta-icone').innerText = m.icone;
+            document.getElementById('alerta-titulo').innerText = m.titulo;
+            document.getElementById('alerta-texto').innerText = m.texto;
+            document.getElementById('modal-alerta').showModal();
+        }
+
+        function popularSelects() {
+            let optionsHTML = '<option value="">Selecione a tipificação penal...</option>';
+            const categorias = [...new Set(CATALOGO_CRIMES.map(c => c.categoria))];
+            categorias.forEach(cat => {
+                optionsHTML += `<optgroup label="■ ${cat.toUpperCase()}" class="text-slate-400 font-bold bg-slate-900">`;
+                CATALOGO_CRIMES.filter(c => c.categoria === cat).forEach(c => {
+                    const textoPena = c.perpetua ? 'Isolamento Perpétuo' : `Pena Base: ${c.penaBase} anos`;
+                    optionsHTML += `<option value="${c.id}" class="text-white bg-slate-800">${c.nome} (${textoPena})</option>`;
+                });
+                optionsHTML += `</optgroup>`;
+            });
+            document.getElementById('crime-select').innerHTML = optionsHTML;
+            document.getElementById('modal-crime-select').innerHTML = optionsHTML;
+        }
+
+        function salvar() {
+            localStorage.setItem('CrimeZeroDB_v3', JSON.stringify(db));
+            renderizarLista();
+        }
+
+        function handleRegistro(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nome-infrator').value.trim();
+            const crime = CATALOGO_CRIMES.find(c => c.id === document.getElementById('crime-select').value);
+            let infrator = db.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+
+            if (infrator) {
+                if (infrator.perpetua || infrator.status === 'preso') return alert('Já custodiado ou em prisão perpétua.');
+                processarPrisao(infrator, crime);
+            } else {
+                processarPrisao({ id: Date.now().toString(), nome, passagens: 0, status: 'preso', perpetua: false, penaAcumulada: 0, historico: [] }, crime, true);
+            }
+            document.getElementById('form-registro').reset();
+            document.getElementById('nome-infrator').focus();
+        }
+
+        function processarPrisao(inf, crime, novo = false) {
+            inf.passagens += 1;
+            inf.status = 'preso';
+            inf.perpetua = crime.perpetua;
+            inf.penaAcumulada = crime.perpetua ? 'Perpétua' : (crime.penaBase * inf.passagens);
+            inf.historico.unshift({
+                data: new Date().toLocaleDateString('pt-BR'),
+                crime: crime.nome,
+                mult: inf.passagens,
+                pena: inf.penaAcumulada
+            });
+            if (novo) db.push(inf);
+            salvar();
+        }
+
+        function soltar(id) {
+            const i = db.find(p => p.id === id);
+            if (i && !i.perpetua) { i.status = 'solto'; salvar(); }
+        }
+
+        function abrirReincidencia(id) {
+            const i = db.find(p => p.id === id);
+            document.getElementById('modal-id').value = i.id;
+            document.getElementById('modal-nome').innerText = i.nome;
+            document.getElementById('modal-passagens').innerText = i.passagens + 1;
+            document.getElementById('modal-reincidencia').showModal();
+        }
+
+        function fecharModalReincidencia() {
+            document.getElementById('modal-reincidencia').close();
+            document.getElementById('form-reincidencia').reset();
+        }
+
+        function handleReincidencia(e) {
+            e.preventDefault();
+            processarPrisao(
+                db.find(p => p.id === document.getElementById('modal-id').value),
+                CATALOGO_CRIMES.find(c => c.id === document.getElementById('modal-crime-select').value)
+            );
+            fecharModalReincidencia();
+        }
+
+        function limparSistema() {
+            if (confirm('Zerar toda a base de dados jurídica deste dispositivo?')) {
+                db = [];
+                salvar();
+            }
+        }
+
+        function renderizarLista() {
+            const container = document.getElementById('lista-presos');
+            document.getElementById('total-registros').innerText = db.length;
+            container.innerHTML = '';
+
+            [...db].sort((a, b) => b.passagens - a.passagens).forEach(i => {
+                const isPreso = i.status === 'preso';
+                const cor = i.perpetua ? 'red' : (isPreso ? 'orange' : 'emerald');
+                let histHTML = i.historico.map(h =>
+                    `<div class="flex justify-between text-[11px] bg-slate-800 p-1.5 rounded mb-1 border border-slate-700/50">
+                        <span class="text-slate-300"><b>${h.mult}x:</b> ${h.crime}</span>
+                        <span class="font-bold text-${cor}-400">${h.pena}${typeof h.pena === 'number' ? ' anos' : ''}</span>
+                    </div>`
+                ).join('');
+
+                const painelBotoes = isPreso ? `
+                    <div class="mb-3 bg-slate-900/50 p-2 rounded border border-slate-700">
+                        <span class="block text-[9px] text-slate-400 uppercase font-bold mb-1.5">Painel de Acesso</span>
+                        <div class="flex gap-1.5">
+                            <button onclick="dispararAlerta('bom_comportamento')" class="flex-1 text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 py-1 rounded border border-slate-600">🎁 Bom Comp.</button>
+                            <button onclick="dispararAlerta('visita')" class="flex-1 text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 py-1 rounded border border-slate-600">🫂 Visita</button>
+                            <button onclick="dispararAlerta('advogado')" class="flex-1 text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-300 py-1 rounded border border-slate-600">💼 Advog.</button>
+                        </div>
+                    </div>` : '';
+
+                container.innerHTML += `
+                <div class="glass-panel rounded-xl p-4 border-l-4 border-${cor}-600/50 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between mb-3">
+                            <h3 class="text-base font-bold text-white uppercase truncate pr-2">${i.nome}</h3>
+                            <span class="text-[9px] px-2 py-1 bg-${cor}-900/80 text-${cor}-200 rounded whitespace-nowrap">
+                                ${i.perpetua ? '🔒 Perpétua' : (isPreso ? '⛓️ Custodiado' : '🚶 Livre')}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <div class="bg-slate-800/50 p-2 rounded text-center border border-slate-700">
+                                <span class="block text-[10px] text-slate-400">Reincidências</span>
+                                <span class="text-base font-bold text-white">${i.passagens}</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-2 rounded text-center border border-slate-700">
+                                <span class="block text-[10px] text-slate-400">Pena Matemática</span>
+                                <span class="text-base font-bold text-${cor}-400">${i.penaAcumulada}${typeof i.penaAcumulada === 'number' ? ' anos' : ''}</span>
+                            </div>
+                        </div>
+                        ${painelBotoes}
+                        <div class="mb-2">
+                            <p class="text-[9px] text-slate-400 mb-1 uppercase font-semibold">Histórico Processual</p>
+                            <div class="max-h-20 overflow-y-auto pr-1">${histHTML}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2 pt-2 border-t border-slate-700">
+                        ${isPreso && !i.perpetua ? `<button onclick="soltar('${i.id}')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-bold py-2 rounded">🔓 Alvará de Soltura</button>` : ''}
+                        ${!isPreso ? `<button onclick="abrirReincidencia('${i.id}')" class="flex-1 bg-red-900/80 hover:bg-red-700 text-white text-[11px] font-bold py-2 rounded border border-red-700">🚨 Novo Mandado</button>` : ''}
+                    </div>
+                </div>`;
+            });
+        }
+
+        function inicializarGraficos() {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = 'system-ui';
+            const anos = ['Ano 0', 'Ano 2', 'Ano 4', 'Ano 6', 'Ano 8', 'Ano 10'];
+
+            // Gráfico Cenário Atual
+            new Chart(document.getElementById('chartCrimeAtual').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: anos,
+                    datasets: [
+                        { label: 'Volume de Crimes (Índice)', data: [100, 105, 108, 110, 112, 115], borderColor: '#ef4444', backgroundColor: 'transparent', yAxisID: 'y', tension: 0.3, borderWidth: 3 },
+                        { label: 'Tx. Esclarecimento (%)', data: [36, 36, 35, 36, 37, 36], borderColor: '#f97316', backgroundColor: 'rgba(249, 115, 22, 0.1)', fill: true, yAxisID: 'y1', tension: 0.3, borderWidth: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { min: 0, max: 150, title: { display: true, text: 'Volume de Crimes' } },
+                        y1: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: 'Esclarecimento (%)' } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('chartCustoAtual').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Ano 0', 'Ano 5', 'Ano 10'],
+                    datasets: [
+                        { label: 'Custo Prisional (R$ bi)', data: [25, 27, 29], backgroundColor: '#64748b' },
+                        { label: 'Prejuízo Social do Crime (R$ bi)', data: [150, 165, 180], backgroundColor: '#ef4444' }
+                    ]
+                },
+                options: { responsive: true }
+            });
+
+            // Gráficos CrimeZero
+            new Chart(document.getElementById('chartCrimeCZ').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: anos,
+                    datasets: [
+                        { label: 'Volume de Crimes (Índice)', data: CONFIG.crimesEvolucaoZero, borderColor: '#10b981', backgroundColor: 'transparent', yAxisID: 'y', tension: 0.3, borderWidth: 3 },
+                        { label: 'Tx. Esclarecimento (%)', data: CONFIG.esclarecimentoEvolucao, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, yAxisID: 'y1', tension: 0.3, borderWidth: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { min: 0, max: 150, title: { display: true, text: 'Volume de Crimes' } },
+                        y1: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: 'Esclarecimento (%)' } }
+                    }
+                }
+            });
+
+            new Chart(document.getElementById('chartCustoCZ').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Ano 0', 'Ano 5', 'Ano 10'],
+                    datasets: [
+                        { label: 'Custo Prisional (R$ bi)', data: [25, 45, 30], backgroundColor: '#64748b' },
+                        { label: 'Prejuízo Social do Crime (R$ bi)', data: [150, 70, 25], backgroundColor: '#10b981' }
+                    ]
+                },
+                options: { responsive: true }
+            });
+
+            // Bola de Neve
+            new Chart(document.getElementById('graficoBolaNeve').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: anos,
+                    datasets: [
+                        { label: 'Volume de Crimes (Base 100)', data: CONFIG.crimesEvolucaoZero, borderColor: '#ef4444', backgroundColor: 'transparent', yAxisID: 'y', tension: 0.35, borderWidth: 3 },
+                        { label: 'Taxa de Esclarecimento (%)', data: CONFIG.esclarecimentoEvolucao, borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true, yAxisID: 'y1', tension: 0.35, borderWidth: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Volume de Crimes' } },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Esclarecimento (%)' }, grid: { drawOnChartArea: false }, min: 0, max: 100 }
+                    }
+                }
+            });
+
+            // Pareto
+            new Chart(document.getElementById('graficoPareto').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Primários (94%)', 'Habituais (6%)'],
+                    datasets: [
+                        { label: 'Crimes (cenário atual)', data: [20, 80], backgroundColor: '#f87171' },
+                        { label: 'Após isolamento seletivo', data: [20, 8], backgroundColor: '#4f46e5' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { tooltip: { callbacks: { label: c => c.raw + '% dos crimes' } } },
+                    scales: { y: { beginAtZero: true, max: 100 } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
